@@ -1,31 +1,61 @@
 package com.saad.newsapp.Fragment
 
 import android.os.Bundle
-import android.transition.Visibility
 import android.util.Log
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AbsListView
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.saad.newsapp.Adapter.NewsAdapter
 import com.saad.newsapp.DB.ArticleDataBase
 import com.saad.newsapp.Model.Article
 import com.saad.newsapp.Model.NewsResponse
-import com.saad.newsapp.Model.Source
 import com.saad.newsapp.R
 import com.saad.newsapp.Repository.Repository
 import com.saad.newsapp.Util.Status
 import com.saad.newsapp.ViewModel.BreakingNewsViewModel
 import com.saad.newsapp.ViewModelFactoryProvider.ViewModelProviderFactory
 import com.saad.newsapp.databinding.FragmentBreakingNewsBinding
-import java.io.Serializable
 
 class BreakingNewsFragment : Fragment() {
     private lateinit var binding: FragmentBreakingNewsBinding
     lateinit var newsAdapter: NewsAdapter
     private lateinit var viewModel: BreakingNewsViewModel
+    var isScrolling = false
+    var currentItems = 0
+    var totalItems= 0
+    var scrollOutItems= 0
+
+    val scrollListener = object : RecyclerView.OnScrollListener(){
+        override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+            super.onScrollStateChanged(recyclerView, newState)
+            if(newState == AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL)
+            {
+                isScrolling = true
+            }
+        }
+
+        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+            super.onScrolled(recyclerView, dx, dy)
+            val manager = recyclerView.layoutManager as LinearLayoutManager
+            currentItems = manager.childCount
+            totalItems = manager.itemCount
+            scrollOutItems = manager.findFirstVisibleItemPosition()
+
+            if(isScrolling && (currentItems + scrollOutItems == totalItems))
+            {
+                isScrolling = false
+                viewModel.breakingNewsPage++
+                viewModel.getBreakingNews("us")
+                // call api
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -50,7 +80,10 @@ class BreakingNewsFragment : Fragment() {
 
     private fun setupUI() {
         newsAdapter = NewsAdapter()
-        binding.rvBreakingNews.adapter = newsAdapter
+        binding.apply {
+            rvBreakingNews.adapter = newsAdapter
+            rvBreakingNews.addOnScrollListener(this@BreakingNewsFragment.scrollListener)
+        }
     }
 
     private fun setupViewModel() {
@@ -77,7 +110,7 @@ class BreakingNewsFragment : Fragment() {
     }
 
     private fun renderList(newsResponse: NewsResponse) {
-
+        Log.d("listsize",newsResponse.articles.size.toString())
         newsAdapter.differ.submitList(newsResponse.articles)
 
     }

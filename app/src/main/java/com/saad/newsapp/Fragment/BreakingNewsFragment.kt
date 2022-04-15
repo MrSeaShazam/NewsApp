@@ -27,9 +27,7 @@ class BreakingNewsFragment : Fragment() {
     lateinit var newsAdapter: NewsAdapter
     private lateinit var viewModel: BreakingNewsViewModel
     var isScrolling = false
-    var currentItems = 0
-    var totalItems= 0
-    var scrollOutItems= 0
+    var totalResults = -1
 
     val scrollListener = object : RecyclerView.OnScrollListener(){
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
@@ -43,14 +41,13 @@ class BreakingNewsFragment : Fragment() {
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
             super.onScrolled(recyclerView, dx, dy)
             val manager = recyclerView.layoutManager as LinearLayoutManager
-            currentItems = manager.childCount
-            totalItems = manager.itemCount
-            scrollOutItems = manager.findFirstVisibleItemPosition()
+            val currentItems = manager.childCount
+            val totalItems = manager.itemCount
+            val scrollOutItems = manager.findFirstVisibleItemPosition()
 
-            if(isScrolling && (currentItems + scrollOutItems == totalItems))
+            if(totalResults > totalItems && isScrolling && (currentItems + scrollOutItems == totalItems))
             {
                 isScrolling = false
-                viewModel.breakingNewsPage++
                 viewModel.getBreakingNews("us")
                 // call api
             }
@@ -111,7 +108,8 @@ class BreakingNewsFragment : Fragment() {
 
     private fun renderList(newsResponse: NewsResponse) {
         Log.d("listsize",newsResponse.articles.size.toString())
-        newsAdapter.differ.submitList(newsResponse.articles)
+        totalResults = newsResponse.totalResults
+        newsAdapter.differ.submitList(newsResponse.articles.toList())
 
     }
 

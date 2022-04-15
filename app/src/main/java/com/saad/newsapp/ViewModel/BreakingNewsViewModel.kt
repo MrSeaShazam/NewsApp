@@ -28,6 +28,7 @@ class BreakingNewsViewModel(private val repository: Repository): ViewModel() {
             repository.getBreakingNews(countryCode, breakingNewsPage).let {
                 if (it.isSuccessful) {
                     it.body()?.let { resultResponse ->
+                        breakingNewsPage++
                         if(breakingNewsResponse == null) {
                             breakingNewsResponse = resultResponse
                         } else {

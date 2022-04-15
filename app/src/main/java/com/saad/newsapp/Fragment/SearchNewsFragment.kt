@@ -5,9 +5,12 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AbsListView
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.saad.newsapp.Adapter.NewsAdapter
 import com.saad.newsapp.DB.ArticleDataBase
 import com.saad.newsapp.Model.Article
@@ -33,6 +36,9 @@ class SearchNewsFragment : Fragment() {
 
     lateinit var newsAdapter: NewsAdapter
     private lateinit var viewModel: SearchNewsViewModel
+    var isScrolling = false
+    var totalResults = -1
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?,
@@ -60,11 +66,15 @@ class SearchNewsFragment : Fragment() {
 
     private fun setupUI() {
         newsAdapter = NewsAdapter()
-        binding.rvSearchNews.adapter = newsAdapter
+        binding.apply {
+            rvSearchNews.adapter = newsAdapter
+            rvSearchNews.addOnScrollListener(this@SearchNewsFragment.scrollListener)
+        }
     }
 
     private fun setupViewModel() {
-        viewModel = ViewModelProvider(this, ViewModelProviderFactory(Repository(ArticleDataBase(requireContext()))))[SearchNewsViewModel::class.java]
+        viewModel = ViewModelProvider(this,
+            ViewModelProviderFactory(Repository(ArticleDataBase(requireContext()))))[SearchNewsViewModel::class.java]
     }
 
     private fun setupObserver() {
@@ -73,7 +83,8 @@ class SearchNewsFragment : Fragment() {
                 Status.SUCCESS -> {
                     stopLoading()
                     it.data?.let { newsResponse ->
-                        renderList(newsResponse) }
+                        renderList(newsResponse)
+                    }
                 }
                 Status.LOADING -> {
                     startLoading()
@@ -89,8 +100,8 @@ class SearchNewsFragment : Fragment() {
     }
 
     private fun renderList(newsResponse: NewsResponse) {
-
-        newsAdapter.differ.submitList(newsResponse.articles)
+        totalResults = newsResponse.totalResults
+        newsAdapter.differ.submitList(newsResponse.articles.toList())
 
     }
 
@@ -102,7 +113,7 @@ class SearchNewsFragment : Fragment() {
                 job = MainScope().launch {
                     delay(Constants.SEARCH_NEWS_TIME_DELAY)
 
-                    if (editable.toString().isNotEmpty()){
+                    if (editable.toString().isNotEmpty()) {
                         viewModel.searchNews(editable.toString())
                     }
                 }
@@ -119,19 +130,19 @@ class SearchNewsFragment : Fragment() {
     }
 
 
-
     private fun goToArticleFragment(it: Article) {
         val action = SearchNewsFragmentDirections.actionSearchNewsFragmentToArticleFragment(it)
         findNavController().navigate(action)
     }
 
 
-    private fun showBottomNavigation(){
+    private fun showBottomNavigation() {
         //Show Bottom menu from main Activity
         val bottom_menue = requireActivity().findViewById<View>(R.id.bottom_navigation)
         bottom_menue.visibility = View.VISIBLE
     }
-    private fun hideBottomNavigation(){
+
+    private fun hideBottomNavigation() {
         //Hide Bottom menu from main Activity
         val bottom_menue = requireActivity().findViewById<View>(R.id.bottom_navigation)
         bottom_menue.visibility = View.GONE
@@ -147,11 +158,35 @@ class SearchNewsFragment : Fragment() {
         hideBottomNavigation()
     }
 
-    private fun startLoading(){
+    private fun startLoading() {
         binding.paginationProgressBar.visibility = View.VISIBLE
     }
-    private fun stopLoading(){
+
+    private fun stopLoading() {
         binding.paginationProgressBar.visibility = View.GONE
+    }
+
+    val scrollListener = object : RecyclerView.OnScrollListener() {
+        override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+            super.onScrollStateChanged(recyclerView, newState)
+            if (newState == AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL) {
+                isScrolling = true
+            }
+        }
+
+        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+            super.onScrolled(recyclerView, dx, dy)
+            val manager = recyclerView.layoutManager as LinearLayoutManager
+            val currentItems = manager.childCount
+            val totalItems = manager.itemCount
+            val scrollOutItems = manager.findFirstVisibleItemPosition()
+
+            if (totalResults > totalItems && isScrolling && (currentItems + scrollOutItems == totalItems)) {
+                isScrolling = false
+                viewModel.searchNews(binding.etSearch.text.toString())
+                // call api
+            }
+        }
     }
 
 }
